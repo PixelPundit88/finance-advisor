@@ -10,7 +10,21 @@ A FastAPI backend with PostgreSQL, scikit-learn ML analysis and DeepSeek AI advi
 - JWT Authentication
 
 ## Setup
+### Option 1(Docker)
 
+1. Clone the repo
+2. Copy `.env.example` to `.env` and fill in your values
+```bash
+cp .env.example .env
+```
+3. Run with docker
+```bash
+docker compose up --build
+```
+4. Visit `http://localhost:8000/docs`
+
+
+### Option 2(Local)
 1. Clone the repo
 2. Create virtual environment
 ```bash
