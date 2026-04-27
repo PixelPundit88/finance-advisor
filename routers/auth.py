@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, UTC
 from database import get_db
 from dotenv import load_dotenv
 import os
+from routers.defaults import DEFAULT_CATEGORIES
 
 load_dotenv()
 
@@ -44,21 +45,6 @@ def create_token(user_id: str) -> str:
     )
     payload = {"sub": user_id, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-
-DEFAULT_CATEGORIES = [
-    ("Salary",      "income"),
-    ("Freelance",   "income"),
-    ("Dividends",   "income"),
-    ("Food",        "expense"),
-    ("Rent",        "expense"),
-    ("Transport",   "expense"),
-    ("Healthcare",  "expense"),
-    ("Utilities",   "expense"),
-    ("Shopping",    "expense"),
-    ("Stock",       "asset"),
-    ("Crypto",      "asset"),
-]
 
 
 async def get_current_user(
