@@ -1,18 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from models import CategoryCreate, CategoryUpdate
 from database import get_db
 from routers.auth import get_current_user
 from typing import Optional
 
 router = APIRouter(prefix="/categories", tags=["categories"])
-
-class CategoryCreate(BaseModel):
-    name: str
-    type: str  # "income", "expense", "asset"
-
-class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
-    type: Optional[str] = None
 
 @router.get("/")
 async def get_categories(

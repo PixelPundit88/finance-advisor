@@ -1,28 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from database import get_db
 from routers.auth import get_current_user
-from typing import Optional
-from datetime import date as date_type
+from models import AssetCreate, AssetUpdate
 
 router = APIRouter(prefix="/assets", tags=["assets"])
-
-class AssetCreate(BaseModel):
-    name: str
-    ticker: str
-    quantity: float
-    buy_price: float
-    current_price: Optional[float] = None
-    purchase_date: date_type
-
-class AssetUpdate(BaseModel):
-    name: Optional[str] = None
-    ticker: Optional[str] = None
-    quantity: Optional[float] = None
-    buy_price: Optional[float] = None
-    current_price: Optional[float] = None
-    purchase_date: Optional[date_type] = None
-
 
 @router.get("/summary")
 async def get_portfolio_summary(

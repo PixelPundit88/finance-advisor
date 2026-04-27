@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from database import get_db
 from routers.auth import get_current_user
 from openai import AsyncOpenAI
@@ -8,6 +7,7 @@ from openai.types.chat import (
     ChatCompletion,
 )
 from dotenv import load_dotenv
+from models import ChatRequest
 import os
 
 load_dotenv()
@@ -18,11 +18,6 @@ client = AsyncOpenAI(
     base_url=os.getenv("DEEPSEEK_BASE_URL"),
     api_key=os.getenv("DEEPSEEK_API_KEY"),
 )
-
-class ChatRequest(BaseModel):
-    message: str
-    session_id: str | None = None
-
 
 async def get_financial_context(user_id: str, conn) -> str:
     context_parts = []

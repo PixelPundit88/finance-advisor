@@ -1,32 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from database import get_db
 from routers.auth import get_current_user
 from datetime import date
 from typing import Optional
-from datetime import date as date_type
+from models import TransactionCreate, TransactionUpdate
 import csv
 import io
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
-
-class TransactionCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    amount: float
-    type: str
-    category_id: Optional[int] = None
-    date: date_type
-
-class TransactionUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    amount: Optional[float] = None
-    type: Optional[str] = None
-    category_id: Optional[int] = None
-    date: Optional[date_type] = None
-
 
 @router.post("/", status_code=201)
 async def create_transaction(

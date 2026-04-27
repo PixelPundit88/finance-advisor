@@ -14,9 +14,9 @@ from routers import (
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    await init_pool()
+    await init_pool(_app)
     yield
-    await close_pool()
+    await close_pool(_app)
 
 app = FastAPI(lifespan=lifespan)
 

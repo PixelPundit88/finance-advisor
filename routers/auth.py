@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
 import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, UTC
@@ -8,6 +7,7 @@ from database import get_db
 from dotenv import load_dotenv
 import os
 from routers.defaults import DEFAULT_CATEGORIES
+from models import RegisterRequest, TokenResponse
 
 load_dotenv()
 
@@ -22,16 +22,6 @@ if not ALGORITHM:
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str
-
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")

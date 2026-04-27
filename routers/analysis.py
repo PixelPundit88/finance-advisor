@@ -4,61 +4,21 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import IsolationForest
 from sklearn.cluster import KMeans
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from database import get_db
 from routers.auth import get_current_user
-from typing import Optional
 import pandas as pd
+from models import (
+    CategorySummary,
+    MonthlySummary,
+    SummaryResponse,
+    PredictionResponse,
+    CategoryCluster,
+    ClusterResponse,
+    AnomalyTransaction,
+    AnomalyResponse,
+)
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
-
-class CategorySummary(BaseModel):
-    category_name: str
-    total_spent: float
-    transaction_count: int
-
-class MonthlySummary(BaseModel):
-    month: str
-    total_income: float
-    total_expense: float
-    net: float
-
-class SummaryResponse(BaseModel):
-    monthly: list[MonthlySummary]
-    top_expense_categories: list[CategorySummary]
-    total_income: float
-    total_expense: float
-    net_savings: float
-
-class PredictionResponse(BaseModel):
-    month: str
-    predicted_expense: float
-    confidence: str
-
-class CategoryCluster(BaseModel):
-    category_name: str
-    cluster: int
-    cluster_label: str
-    avg_amount: float
-    transaction_count: int
-
-class ClusterResponse(BaseModel):
-    clusters: list[CategoryCluster]
-
-class AnomalyTransaction(BaseModel):
-    transaction_id: int
-    title: str
-    amount: float
-    category_name: Optional[str]
-    date: str
-    anomaly_score: float
-    reason: str
-
-class AnomalyResponse(BaseModel):
-    anomalies: list[AnomalyTransaction]
-    total_flagged: int
-
-
 
 @router.get("/summary", response_model=SummaryResponse)
 async def get_summary(
