@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from database import get_db
 from routers.auth import get_current_user
+from errors import NotFoundException
 
 router = APIRouter(prefix="/anomalies", tags=["anomalies"])
 
@@ -47,10 +48,7 @@ async def get_anomalies(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(
-            status_code=404,
-            detail="No anomalies found. Run /analysis/anomalies first."
-        )
+        raise NotFoundException("No anomalies found. Run /analysis/anomalies first.")
 
     return [format_anomaly(r) for r in rows]
 
@@ -69,8 +67,7 @@ async def get_anomaly(
         row = await cur.fetchone()
 
     if not row:
-        raise HTTPException(status_code=404,
-                            detail="Anomaly not found")
+        raise NotFoundException("Anomaly not found")
 
     return format_anomaly(row)
 
@@ -97,7 +94,6 @@ async def delete_anomaly(
     await conn.commit()
 
     if not deleted:
-        raise HTTPException(status_code=404,
-                            detail="Anomaly not found")
+        raise NotFoundException("Anomaly not found")
 
     return {"message": "Anomaly deleted"}

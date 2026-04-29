@@ -1,6 +1,13 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from database import init_pool, close_pool
+from errors import (
+    AppException,
+    app_exception_handler,
+    validation_exception_handler,
+    generic_exception_handler,
+)
 from routers import (
     auth,
     transactions,
@@ -19,6 +26,10 @@ async def lifespan(_app: FastAPI):
     await close_pool(_app)
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_exception_handler(AppException, app_exception_handler)  # type: ignore
+app.add_exception_handler(RequestValidationError, validation_exception_handler) # type: ignore
+app.add_exception_handler(Exception, generic_exception_handler) # type: ignore
 
 app.include_router(auth.router)
 app.include_router(transactions.router)

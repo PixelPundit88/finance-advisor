@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from database import get_db
 from routers.auth import get_current_user
 from openai import AsyncOpenAI
@@ -8,6 +8,7 @@ from openai.types.chat import (
 )
 from dotenv import load_dotenv
 from models import ChatRequest
+from errors import NotFoundException
 import os
 
 load_dotenv()
@@ -159,7 +160,7 @@ async def chat(
             )
             session = await cur.fetchone()
         if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+            raise NotFoundException("Session not found.")
         session_id = req.session_id
     else:
         async with conn.cursor() as cur:
@@ -250,7 +251,7 @@ async def get_sessions(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(status_code=404, detail="No chat sessions found.")
+        raise NotFoundException("No chat sessions found.")
 
     return [
         {
@@ -273,7 +274,7 @@ async def get_session_history(
             (session_id, current_user["user_id"])
         )
         if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Session not found")
+            raise NotFoundException("Session not found.")
 
     async with conn.cursor() as cur:
         await cur.execute(
@@ -313,6 +314,6 @@ async def delete_session(
     await conn.commit()
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise NotFoundException("Session not found.")
 
     return {"message": "Session deleted"}

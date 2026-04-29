@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from database import get_db
+from errors import BadRequestException, NotFoundException
 from routers.auth import get_current_user
 from datetime import date
 from typing import Optional
@@ -16,11 +17,6 @@ async def create_transaction(
     current_user=Depends(get_current_user),
     conn=Depends(get_db)
 ):
-    if req.type not in ("income", "expense"):
-        raise HTTPException(status_code=400, detail="Type must be 'income' or 'expense'")
-
-    if req.amount <= 0:
-        raise HTTPException(status_code=400, detail="Amount must be positive")
 
     if req.category_id:
         async with conn.cursor() as cur:
@@ -29,7 +25,7 @@ async def create_transaction(
                 (req.category_id, current_user["user_id"])
             )
             if not await cur.fetchone():
-                raise HTTPException(status_code=404, detail="Category not found")
+                raise NotFoundException("Category not found")
 
     async with conn.cursor() as cur:
         await cur.execute(
@@ -79,9 +75,9 @@ async def get_transactions(
     """
     params = [current_user["user_id"]]
 
-    if type:
+    if _type:
         query += " AND t.type = %s"
-        params.append(type)
+        params.append(_type)
 
     if category_id:
         query += " AND t.category_id = %s"
@@ -142,7 +138,7 @@ async def export_transactions(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(status_code=404, detail="No transactions to export.")
+        raise NotFoundException("No transactions to export.")
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -178,7 +174,7 @@ async def get_transaction(
         row = await cur.fetchone()
 
     if not row:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise NotFoundException("Transaction not found")
 
     return {
         "transaction_id": row[0],
@@ -204,7 +200,7 @@ async def update_transaction(
             (transaction_id, current_user["user_id"])
         )
         if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Transaction not found")
+            raise NotFoundException("Transaction not found")
 
         if req.category_id is not None:
             await cur.execute(
@@ -212,40 +208,17 @@ async def update_transaction(
                 (req.category_id, current_user["user_id"])
             )
             if not await cur.fetchone():
-                raise HTTPException(status_code=404, detail="Category not found or doesn't belong to you")
+                raise NotFoundException("Category not found or doesn't belong to you")
 
-        fields = []
-        params = []
+        data = req.model_dump(exclude_none=True)
+        if not data:
+            raise BadRequestException("No fields to update")
 
-        if req.title is not None:
-            fields.append("title = %s")
-            params.append(req.title)
-        if req.description is not None:
-            fields.append("description = %s")
-            params.append(req.description)
-        if req.amount is not None:
-            if req.amount <= 0:
-                raise HTTPException(status_code=400, detail="Amount must be positive")
-            fields.append("amount = %s")
-            params.append(req.amount)
-        if req.type is not None:
-            if req.type not in ("income", "expense"):
-                raise HTTPException(status_code=400, detail="Type must be 'income' or 'expense'")
-            fields.append("type = %s")
-            params.append(req.type)
-        if req.category_id is not None:
-            fields.append("category_id = %s")
-            params.append(req.category_id)
-        if req.date is not None:
-            fields.append("date = %s")
-            params.append(req.date)
+        set_clause = ", ".join(f"{key} = %s" for key in data.keys())
+        params = list(data.values()) + [transaction_id]
 
-        if not fields:
-            raise HTTPException(status_code=400, detail="No fields to update")
-
-        params.append(transaction_id)
         await cur.execute(
-            f"UPDATE transactions SET {', '.join(fields)} WHERE transaction_id = %s",
+            f"UPDATE transactions SET {set_clause} WHERE transaction_id = %s",
             params
         )
 
@@ -269,7 +242,7 @@ async def delete_transaction(
     await conn.commit()
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise NotFoundException("Transaction not found")
 
     return {"message": "Transaction deleted"}
 

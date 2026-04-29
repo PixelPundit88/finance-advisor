@@ -5,6 +5,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.cluster import KMeans
 from fastapi import APIRouter, Depends, HTTPException
 from database import get_db
+from errors import NotFoundException, BadRequestException
 from routers.auth import get_current_user
 import pandas as pd
 from models import (
@@ -78,19 +79,13 @@ async def get_summary(
         totals = await cur.fetchone()
 
     if not monthly_rows and not category_rows:
-        raise HTTPException(
-            status_code=404,
-            detail="No transactions found. Add some transactions first."
-        )
+        raise NotFoundException("No transactions found. Add some transactions first.")
 
     total_income = float(totals[0] or 0)
     total_expense = float(totals[1] or 0)
 
     if total_income == 0 and total_expense == 0:
-        raise HTTPException(
-            status_code=404,
-            detail="No transaction amounts found."
-        )
+        raise NotFoundException("No transaction amounts found.")
 
     monthly = [
         MonthlySummary(
@@ -143,16 +138,9 @@ async def predict_expense(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(
-            status_code=404,
-            detail="No expense transactions found to predict from."
-        )
-
+        raise NotFoundException("No expense transactions found to predict from.")
     if len(rows) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="Not enough data to predict. Add at least 2 months of expenses."
-        )
+        raise BadRequestException("Not enough data to predict. Add at least 2 months of expenses.")
 
     df = pd.DataFrame(rows, columns=["month", "total_expense"])
     df["total_expense"] = df["total_expense"].astype(float)
@@ -221,16 +209,10 @@ async def get_clusters(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(
-            status_code=404,
-            detail="No expense transactions found to cluster."
-        )
+        raise NotFoundException("No expense transactions found to cluster.")
 
     if len(rows) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="Not enough categories to cluster. Add transactions in at least 2 different categories."
-        )
+        raise BadRequestException("Not enough categories to cluster. Add transactions in at least 2 different categories.")
 
     df = pd.DataFrame(rows, columns=["category_name", "avg_amount", "transaction_count", "total_spent"])
     df["avg_amount"] = df["avg_amount"].astype(float)
@@ -297,10 +279,10 @@ async def detect_anomalies(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(status_code=404, detail="No expense transactions found.")
+        raise NotFoundException("No expense transactions found.")
 
     if len(rows) < 5:
-        raise HTTPException(status_code=400, detail="Add at least 5 expense transactions.")
+        raise BadRequestException("Add at least 5 expense transactions.")
 
     df = pd.DataFrame(rows, columns=["transaction_id", "title", "amount", "date", "category_name"])
     df["amount"] = df["amount"].astype(float)

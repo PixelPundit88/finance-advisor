@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from database import get_db
 from routers.auth import get_current_user
+from errors import NotFoundException
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
@@ -26,10 +27,7 @@ async def get_predictions(
         rows = await cur.fetchall()
 
     if not rows:
-        raise HTTPException(
-            status_code=404,
-            detail="No predictions found. Run /analysis/predict first."
-        )
+        raise NotFoundException("No predictions found. Run /analysis/predict first.")
 
     return [
         {
@@ -64,7 +62,7 @@ async def get_prediction(
         row = await cur.fetchone()
 
     if not row:
-        raise HTTPException(status_code=404, detail="Prediction not found")
+        raise NotFoundException("Prediction not found")
 
     return {
         "prediction_id": row[0],
@@ -90,6 +88,6 @@ async def delete_prediction(
     await conn.commit()
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Prediction not found")
+        raise NotFoundException("Prediction not found")
 
     return {"message": "Prediction deleted"}

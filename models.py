@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Literal
 from datetime import date as date_type
 
 
@@ -16,43 +16,43 @@ class TokenResponse(BaseModel):
 class TransactionCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    amount: float
-    type: str
+    amount: float = Field(gt=0)
+    type: Literal["income", "expense"]
     category_id: Optional[int] = None
     date: date_type
 
 class TransactionUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    amount: Optional[float] = None
-    type: Optional[str] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    type: Optional[Literal["income", "expense"]] = None
     category_id: Optional[int] = None
     date: Optional[date_type] = None
 
 # CATEGORIES
 class CategoryCreate(BaseModel):
     name: str
-    type: str  # "income", "expense", "asset"
+    type: Literal["income", "expense", "asset"]
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
-    type: Optional[str] = None
+    type: Optional[Literal["income", "expense", "asset"]] = None
 
 # ASSETS
 class AssetCreate(BaseModel):
     name: str
     ticker: str
-    quantity: float
-    buy_price: float
-    current_price: Optional[float] = None
+    quantity: float = Field(gt=0)
+    buy_price: float = Field(gt=0)
+    current_price: Optional[float] = Field(default=None, gt=0)
     purchase_date: date_type
 
 class AssetUpdate(BaseModel):
     name: Optional[str] = None
     ticker: Optional[str] = None
-    quantity: Optional[float] = None
-    buy_price: Optional[float] = None
-    current_price: Optional[float] = None
+    quantity: Optional[float] = Field(default=None, gt=0)
+    buy_price: Optional[float] = Field(default=None, gt=0)
+    current_price: Optional[float] = Field(default=None, gt=0)
     purchase_date: Optional[date_type] = None
 
 # ANALYSIS
@@ -105,4 +105,4 @@ class AnomalyResponse(BaseModel):
 # CHAT
 class ChatRequest(BaseModel):
     message: str
-    session_id: str | None = None
+    session_id: Optional[str] = None

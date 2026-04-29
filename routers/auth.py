@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from errors import BadRequestException, UnauthorizedException, DatabaseException
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import bcrypt
 from jose import JWTError, jwt
@@ -6,10 +7,13 @@ from datetime import datetime, timedelta, UTC
 from database import get_db
 from dotenv import load_dotenv
 import os
+import logging
 from routers.defaults import DEFAULT_CATEGORIES
 from models import RegisterRequest, TokenResponse
 
 load_dotenv()
+
+logger = logging.getLogger("app.auth")
 
 SECRET_KEY = os.getenv("SECRET_KEY") or ''
 ALGORITHM = os.getenv("ALGORITHM") or ''
@@ -20,7 +24,6 @@ if not ALGORITHM:
     raise RuntimeError("ALGORITHM is not set in .env")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def hash_password(password: str) -> str:
@@ -43,11 +46,11 @@ async def get_current_user(
 ):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = str(payload.get("sub", ""))
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        user_id = str(payload.get("sub", ""))
+        if not user_id:
+            raise UnauthorizedException("Invalid token")
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise UnauthorizedException("Invalid token")
 
     async with conn.cursor() as cur:
         await cur.execute(
@@ -56,7 +59,7 @@ async def get_current_user(
         row = await cur.fetchone()
 
     if row is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise UnauthorizedException("User not found")
 
     return {"user_id": str(row[0]), "email": row[1]}
 
@@ -64,40 +67,51 @@ async def get_current_user(
 @router.post("/register", status_code=201)
 async def register(req: RegisterRequest, conn=Depends(get_db)):
     if len(req.password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password cannot exceed 72 characters")
-    async with conn.cursor() as cur:
-        await cur.execute(
-            "SELECT user_id FROM users WHERE email = %s", (req.email,)
-        )
-        if await cur.fetchone():
-            raise HTTPException(status_code=400, detail="Email already registered")
+        raise BadRequestException("Password can not be more than 72 characters")
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT user_id FROM users WHERE email = %s", (req.email,)
+            )
+            if await cur.fetchone():
+                raise BadRequestException("Email already registered")
 
-        await cur.execute(
-            "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING user_id",
-            (req.email, hash_password(req.password))
-        )
-        row = await cur.fetchone()
-        user_id = str(row[0])
+            await cur.execute(
+                "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING user_id",
+                (req.email, hash_password(req.password))
+            )
+            row = await cur.fetchone()
+            user_id = str(row[0])
 
-        await cur.executemany(
-            "INSERT INTO categories (user_id, name, type) VALUES (%s, %s, %s)",
-            [(user_id, name, type_) for name, type_ in DEFAULT_CATEGORIES]
-        )
+            await cur.executemany(
+                "INSERT INTO categories (user_id, name, type) VALUES (%s, %s, %s)",
+                [(user_id, name, type_) for name, type_ in DEFAULT_CATEGORIES]
+            )
 
-    await conn.commit()
+        await conn.commit()
+    except BadRequestException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}", exc_info=True)
+        raise DatabaseException("Failed to register user")
+
     return {"message": "User registered successfully", "user_id": user_id}
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(form: OAuth2PasswordRequestForm = Depends(), conn=Depends(get_db)):
-    async with conn.cursor() as cur:
-        await cur.execute(
-            "SELECT user_id, password_hash FROM users WHERE email = %s", (form.username,)
-        )
-        row = await cur.fetchone()
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT user_id, password_hash FROM users WHERE email = %s", (form.username,)
+            )
+            row = await cur.fetchone()
+    except Exception as e:
+        logger.error(f"Login error: {e}", exc_info=True)
+        raise DatabaseException("Failed to login user")
 
     if not row or not verify_password(form.password, row[1]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise UnauthorizedException("Invalid login or password")
 
     token = create_token(str(row[0]))
     return {"access_token": token, "token_type": "bearer"}

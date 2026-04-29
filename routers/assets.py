@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from database import get_db
+from errors import BadRequestException, NotFoundException
 from routers.auth import get_current_user
 from models import AssetCreate, AssetUpdate
 
@@ -92,13 +93,6 @@ async def create_asset(
     current_user=Depends(get_current_user),
     conn=Depends(get_db)
 ):
-    if req.quantity <= 0:
-        raise HTTPException(status_code=400, detail="Quantity must be positive")
-    if req.buy_price <= 0:
-        raise HTTPException(status_code=400, detail="Buy price must be positive")
-    if req.current_price is not None and req.current_price <= 0:
-        raise HTTPException(status_code=400, detail="Current price must be positive")
-
     async with conn.cursor() as cur:
         # check duplicate ticker for this user
         await cur.execute(
@@ -106,9 +100,8 @@ async def create_asset(
             (current_user["user_id"], req.ticker.upper())
         )
         if await cur.fetchone():
-            raise HTTPException(
-                status_code=400,
-                detail=f"Asset with ticker {req.ticker.upper()} already exists. Use PUT to update it."
+            raise BadRequestException(
+                f"Asset with ticker {req.ticker.upper()} already exists. Use PUT to update it."
             )
 
         await cur.execute(
@@ -146,38 +139,25 @@ async def update_asset(
             (asset_id, current_user["user_id"])
         )
         if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Asset not found")
+            raise NotFoundException("Asset not found")
 
         fields = []
         params = []
 
-        if req.name is not None:
-            fields.append("name = %s")
-            params.append(req.name)
-        if req.ticker is not None:
-            fields.append("ticker = %s")
-            params.append(req.ticker.upper())
-        if req.quantity is not None:
-            if req.quantity <= 0:
-                raise HTTPException(status_code=400, detail="Quantity must be positive")
-            fields.append("quantity = %s")
-            params.append(req.quantity)
-        if req.buy_price is not None:
-            if req.buy_price <= 0:
-                raise HTTPException(status_code=400, detail="Buy price must be positive")
-            fields.append("buy_price = %s")
-            params.append(req.buy_price)
-        if req.current_price is not None:
-            if req.current_price <= 0:
-                raise HTTPException(status_code=400, detail="Current price must be positive")
-            fields.append("current_price = %s")
-            params.append(req.current_price)
-        if req.purchase_date is not None:
-            fields.append("purchase_date = %s")
-            params.append(req.purchase_date)
+        for field, column in [
+            (req.name, "name"),
+            (req.ticker.upper() if req.ticker else None, "ticker"),
+            (req.quantity, "quantity"),
+            (req.buy_price, "buy_price"),
+            (req.current_price, "current_price"),
+            (req.purchase_date, "purchase_date"),
+        ]:
+            if field is not None:
+                fields.append(f"{column} = %s")
+                params.append(field)
 
         if not fields:
-            raise HTTPException(status_code=400, detail="No fields to update")
+            raise BadRequestException("No fields to update")
 
         params.append(asset_id)
         await cur.execute(
@@ -205,6 +185,6 @@ async def delete_asset(
     await conn.commit()
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Asset not found")
+        raise NotFoundException("Asset not found")
 
     return {"message": "Asset deleted"}
