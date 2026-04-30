@@ -1,4 +1,5 @@
 import psycopg_pool
+from psycopg_pool import AsyncConnectionPool
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -23,5 +24,15 @@ async def close_pool(app: FastAPI):
 
 # noinspection PyUnresolvedReferences
 async def get_db(request: Request):
-    async with request.app.pool.connection() as conn:
+    async with request.app.state.pool.connection() as conn:
         yield conn
+
+async def create_pool() -> AsyncConnectionPool:
+    pool = AsyncConnectionPool(
+        conninfo=os.getenv("DATABASE_URL", ""),
+        min_size=1,
+        max_size=5,
+        open=False
+    )
+    await pool.open()
+    return pool

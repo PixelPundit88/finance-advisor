@@ -10,4 +10,5 @@ scikit-learn
 pandas
 numpy
 openai
+joblib
 psycopg-pool

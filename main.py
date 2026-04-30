@@ -1,13 +1,8 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from database import init_pool, close_pool
-from errors import (
-    AppException,
-    app_exception_handler,
-    validation_exception_handler,
-    generic_exception_handler,
-)
 from routers import (
     auth,
     transactions,
@@ -18,6 +13,13 @@ from routers import (
     anomalies,
     chat,
 )
+from errors import (
+    AppException,
+    app_exception_handler,
+    validation_exception_handler,
+    generic_exception_handler,
+)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -26,6 +28,14 @@ async def lifespan(_app: FastAPI):
     await close_pool(_app)
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware, # type: ignore
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_exception_handler(AppException, app_exception_handler)  # type: ignore
 app.add_exception_handler(RequestValidationError, validation_exception_handler) # type: ignore

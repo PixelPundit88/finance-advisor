@@ -45,7 +45,7 @@ async def app_exception_handler(_request: Request, exc: AppException):
 
 
 async def validation_exception_handler(_request: Request, exc: RequestValidationError):
-    logger.warning(f"Validation error: {exc.errors()}")
+    logger.warning("Validation error: %s", exc.errors())
     return JSONResponse(
         status_code=422,
         content={

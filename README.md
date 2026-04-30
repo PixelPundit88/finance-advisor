@@ -50,6 +50,24 @@ uvicorn main:app --reload
 ```
 7. Visit `http://127.0.0.1:8000/docs`
 
+## Model Training
+
+- Analysis endpoints rely on pre-trained models
+- The training is done offline ( run script manually or on a schedule)
+- **Training script needs:**\
+at least 2 months of expense data,\
+2 expense categories \
+at least 5 transactions(expense)
+
+### Option 1(Docker)
+```bash
+docker-compose run --rm api python train_models.py
+```
+### Option 2(Local)
+```bash
+python train_models.py
+```
+
 ## Endpoints
 
 ### Auth
